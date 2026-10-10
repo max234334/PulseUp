@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#101525" />
+  <title>PulseUp — Messenger</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101525;
+      --panel: #191f32;
+      --muted: #9ca8c2;
+      --accent: #7c5cfc;
+      --border: #30374a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: #f7f8ff;
+      font: 15px/1.5 system-ui, sans-serif;
+      min-height: 100vh;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    .shell { max-width: 860px; margin: auto; padding: 20px; }
+    header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 0 22px; border-bottom: 1px solid var(--border);
+    }
+    .logo {
+      display: grid; place-items: center; width: 48px; height: 48px;
+      border-radius: 15px; background: var(--accent);
+      font-size: 27px; font-weight: 800;
+    }
+    h1 { font-size: 23px; margin: 0; letter-spacing: -.7px; }
+    .muted { color: var(--muted); font-size: 13px; }
+    .grow { flex: 1; min-width: 0; }
+    .card {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 20px; padding: 22px; margin-top: 22px;
+    }
+    h2 { margin: 0 0 5px; font-size: 20px; }
+    input {
+      width: 100%; min-width: 0; background: #101525;
+      color: white; border: 1px solid var(--border);
+      border-radius: 12px; padding: 13px 14px; outline: none;
+    }
+    input:focus { border-color: var(--accent); }
+    label { display: block; color: var(--muted); font-size: 13px; margin: 14px 0 6px; }
+    button {
+      background: var(--accent); color: white; border: 0;
+      border-radius: 12px; padding: 12px 16px; font-weight: 650;
+    }
+    button:disabled { opacity: .5; cursor: wait; }
+    .secondary { background: #293149; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .tabs { display: flex; gap: 8px; margin: 18px 0; }
+    .tabs button { flex: 1; }
+    .hidden { display: none !important; }
+    .status { font-size: 13px; color: var(--muted); margin-top: 12px; }
+    .messages {
+      height: min(55vh, 500px); min-height: 260px; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 12px;
+      padding: 20px 0;
+    }
+    .message {
+      max-width: 85%; width: fit-content; overflow-wrap: anywhere;
+      background: #283149; padding: 11px 14px; border-radius: 15px;
+    }
+    .message.mine { align-self: flex-end; background: #5140a9; }
+    .meta { color: #c0b6ff; font-size: 12px; margin-bottom: 4px; }
+    .content { white-space: pre-wrap; }
+    .composer { display: flex; gap: 9px; }
+    .composer input { flex: 1; }
+    .topline { display: flex; align-items: center; gap: 12px; }
+    @media (max-width: 520px) {
+      .shell { padding: 12px; }
+      .card { padding: 16px; }
+      .messages { height: 52vh; }
+      .composer { align-items: stretch; }
+      .composer button { padding: 10px 12px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div class="logo">P</div>
+      <div class="grow">
+        <h1>PulseUp</h1>
+        <div class="muted">Stay close. Chat freely.</div>
+      </div>
+      <div class="muted">● Online</div>
+    </header>
+    <section class="card" id="auth">
+      <h2>Добро пожаловать 👋</h2>
+      <div class="muted">Войди или создай аккаунт PulseUp</div>
+      <div class="tabs">
+        <button id="loginTab" type="button">Войти</button>
+        <button id="registerTab" class="secondary" type="button">Регистрация</button>
+      </div>
+      <form id="authForm">
+        <div id="nameWrap" class="hidden">
+          <label for="displayName">Имя в чате</label>
+          <input id="displayName" maxlength="40" autocomplete="nickname"
+            placeholder="Как тебя называть?" />
+        </div>
+        <label for="email">Электронная почта</label>
+        <input id="email" type="email" required autocomplete="email"
+          placeholder="you@example.com" />
+        <label for="password">Пароль</label>
+        <input id="password" type="password" required minlength="6"
+          autocomplete="current-password" placeholder="Минимум 6 символов" />
+        <div style="margin-top:18px">
+          <button id="authSubmit" type="submit" style="width:100%">Войти</button>
+        </div>
+      </form>
+      <div class="status" id="authStatus" role="status"></div>
+    </section>
+    <section class="card hidden" id="chat">
+      <div class="topline">
+        <div class="grow">
+          <h2>💬 Общий чат</h2>
+          <div class="muted">Сообщения видны всем участникам чата</div>
+        </div>
+        <button class="secondary" id="logout" type="button">Выйти</button>
+      </div>
+      <div class="status" id="connection">Подключение к чату…</div>
+      <div class="messages" id="messages" aria-live="polite"></div>
+      <form id="sendForm" class="composer">
+        <input id="messageInput" maxlength="2000" required
+          placeholder="Напиши сообщение…" autocomplete="off" />
+        <button id="sendButton" type="submit" aria-label="Отправить">➤</button>
+      </form>
+      <div class="status" id="chatStatus" role="status"></div>
+    </section>
+    <p class="muted" style="text-align:center;margin-top:20px">
+      PulseUp · Общайся с уважением 💜
+    </p>
+  </main>
+  <script type="module">
+    import { createClient } from
+      'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+    // ЗАМЕНИ эти значения данными своего проекта Supabase.
+    const SUPABASE_URL = 'https://xfbbhfyfqprwvcsmvopx.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_1vguY-TDFIuRoVdVkHKeCw_u6TmpAFj';
+    const $ = id => document.getElementById(id);
+    const authBox = $('auth');
+    const chatBox = $('chat');
+    let supabase;
+    let currentUser = null;
+    let channel = null;
+    let registration = false;
+    let sending = false;
+    let oldestLoaded = null;
+    function status(id, text) { $(id).textContent = text; }
+    function configured() {
+      return SUPABASE_URL.startsWith('https://') &&
+        !SUPABASE_URL.includes('YOUR_PROJECT') &&
+        !SUPABASE_KEY.includes('YOUR_SUPABASE');
+    }
+    function setRegistration(value) {
+      registration = value;
+      $('nameWrap').classList.toggle('hidden', !value);
+      $('authSubmit').textContent = value ? 'Создать аккаунт' : 'Войти';
+      $('loginTab').className = value ? 'secondary' : '';
+      $('registerTab').className = value ? '' : 'secondary';
+      $('password').autocomplete = value ? 'new-password' : 'current-password';
+      status('authStatus', '');
+    }
+    $('loginTab').onclick = () => setRegistration(false);
+    $('registerTab').onclick = () => setRegistration(true);
+    function showChat(user) {
+      currentUser = user;
+      authBox.classList.add('hidden');
+      chatBox.classList.remove('hidden');
+    }
+    function showAuth() {
+      currentUser = null;
+      chatBox.classList.add('hidden');
+      authBox.classList.remove('hidden');
+      $('messages').replaceChildren();
+      if (channel) supabase.removeChannel(channel);
+      channel = null;
+    }
+    function addMessage(msg) {
+      const list = $('messages');
+      if (list.querySelector(`[data-id="${msg.id}"]`)) return;
+      const item = document.createElement('article');
+      item.className = 'message' +
+        (msg.sender_id === currentUser?.id ? ' mine' : '');
+      item.dataset.id = msg.id;
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      const date = new Date(msg.created_at);
+      meta.textContent = `${msg.sender_name} · ${
+        date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }`;
+      const body = document.createElement('div');
+      body.className = 'content';
+      body.textContent = msg.content;
+      item.append(meta, body);
+      list.append(item);
+    }
+    async function loadMessages() {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('id,sender_id,sender_name,content,created_at')
+        .order('id', { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      $('messages').replaceChildren();
+      for (const msg of (data || []).reverse()) addMessage(msg);
+      oldestLoaded = data?.length ? data[data.length - 1].id : null;
+      $('messages').scrollTop = $('messages').scrollHeight;
+    }
+    async function connectChat(user) {
+      showChat(user);
+      status('connection', 'Загружаем сообщения…');
+      try {
+        await loadMessages();
+        status('connection', '● Подключено к PulseUp');
+      } catch (error) {
+        status('connection', 'Не удалось загрузить сообщения: ' + error.message);
+      }
+      if (channel) await supabase.removeChannel(channel);
+      channel = supabase.channel('pulseup-public-chat')
+        .on('postgres_changes', {
+          event: 'INSERT', schema: 'public', table: 'messages'
+        }, payload => {
+          addMessage(payload.new);
+          $('messages').scrollTop = $('messages').scrollHeight;
+        })
+        .subscribe(state => {
+          if (state === 'SUBSCRIBED') {
+            status('connection', '● Онлайн · обновления в реальном времени');
+          } else if (state === 'CHANNEL_ERROR') {
+            status('connection', 'Проблема соединения. Обнови страницу.');
+          }
+        });
+    }
+    $('authForm').addEventListener('submit', async event => {
+      event.preventDefault();
+      if (!supabase) return;
+      const button = $('authSubmit');
+      button.disabled = true;
+      status('authStatus', 'Подожди…');
+      try {
+        const email = $('email').value.trim();
+        const password = $('password').value;
+        if (registration) {
+          const displayName = $('displayName').value.trim() || 'User';
+          const { data, error } = await supabase.auth.signUp({
+            email, password,
+            options: { data: { display_name: displayName } }
+          });
+          if (error) throw error;
+          if (data.session) {
+            await connectChat(data.user);
+            status('chatStatus', 'Аккаунт создан!');
+          } else {
+            status('authStatus',
+              'Проверь почту и подтверди регистрацию, затем войди.');
+          }
+        } else {
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email, password
+          });
+          if (error) throw error;
+          await connectChat(data.user);
+        }
+      } catch (error) {
+        status('authStatus', error.message || 'Не удалось выполнить вход.');
+      } finally {
+        button.disabled = false;
+      }
+    });
+    $('sendForm').addEventListener('submit', async event => {
+      event.preventDefault();
+      if (!currentUser || sending) return;
+      const input = $('messageInput');
+      const content = input.value.trim();
+      if (!content) return;
+      sending = true;
+      $('sendButton').disabled = true;
+      try {
+        const senderName = String(
+          currentUser.user_metadata?.display_name || 'User'
+        ).trim().slice(0, 40) || 'User';
+        const { error } = await supabase.from('messages').insert({
+          sender_id: currentUser.id,
+          sender_name: senderName,
+          content
+        });
+        if (error) throw error;
+        input.value = '';
+        status('chatStatus', '');
+      } catch (error) {
+        status('chatStatus', 'Не отправлено: ' + error.message);
+      } finally {
+        sending = false;
+        $('sendButton').disabled = false;
+        input.focus();
+      }
+    });
+    $('logout').onclick = async () => {
+      const { error } = await supabase.auth.signOut();
+      if (error) status('chatStatus', error.message);
+      else showAuth();
+    };
+    if (!configured()) {
+      status('authStatus',
+        'Сначала укажи URL и публичный ключ своего проекта Supabase в index.html.');
+    } else {
+      supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+      const { data, error } = await supabase.auth.getSession();
+      if (error) status('authStatus', error.message);
+      if (data.session) await connectChat(data.session.user);
+      supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_OUT') showAuth();
+      });
+    }
+  </script>
+</body>
+</html>
